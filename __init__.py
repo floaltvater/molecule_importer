@@ -68,19 +68,19 @@ from . import export_molecule
 
 class Style_radii(bpy.types.PropertyGroup):
     balls = FloatProperty(default=1.0)
-    balls_and_sticks = FloatProperty(default=0.3)
+    balls_and_sticks = FloatProperty(default=0.35)
 
 def callback_style(self, context):
     # save last setting
-    if self.last_style == '0':
+    if self.last_style == 'BALL':
         self.style_radii.balls = self.scale_ballradius
-    elif self.last_style == '1':
+    elif self.last_style == 'BAS':
         self.style_radii.balls_and_sticks = self.scale_ballradius
     
     # update current setting
-    if self.style == '0':
+    if self.style == 'BALL':
         self.scale_ballradius = self.style_radii.balls
-    elif self.style == '1':
+    elif self.style == 'BAS':
         self.scale_ballradius = self.style_radii.balls_and_sticks
     
     self.last_style = self.style
@@ -106,17 +106,17 @@ class ImportXYZ(Operator, ImportHelper):
         items=(('BALLS', "Balls", "Balls"),
                ('BAS', "Balls and Sticks" , "Balls and Sticks"),
                ('STICKS', "Sticks" , "Stick")),
-               default='1',
+               default='BAS',
                update=callback_style)
     style_radii = PointerProperty(type=Style_radii)
-    last_style = StringProperty(default='1')
+    last_style = StringProperty(default='BAS')
     ball = EnumProperty(
         name="Type of ball",
         description="Choose ball",
         items=(('NURBS', "NURBS", "NURBS balls"),
                ('MESH', "Mesh" , "Mesh balls"),
                ('META', "Meta" , "Metaballs")),
-               default='0',) 
+               default='NURBS',) 
     mesh_azimuth = IntProperty(
         name = "Azimuth", default=32, min=1,
         description = "Number of sectors (azimuth)")
@@ -124,7 +124,7 @@ class ImportXYZ(Operator, ImportHelper):
         name = "Zenith", default=32, min=1,
         description = "Number of sectors (zenith)")
     scale_ballradius = FloatProperty(
-        name = "Balls", default=0.3, min=0.0001,
+        name = "Balls", default=0.35, min=0.0001,
         description = "Scale factor for all atom radii")
     scale_distances = FloatProperty (
         name = "Distances", default=1.0, min=0.0001,
@@ -144,9 +144,9 @@ class ImportXYZ(Operator, ImportHelper):
                ('MESH', "Mesh" , "Mesh balls"),
                #('2', "Meta" , "Metaballs")
                ),
-               default='0',) 
+               default='NURBS',) 
     bond_radius = FloatProperty(
-        name = "Bond radius", default=0.2, min=0.0001,
+        name = "Bond radius", default=0.15, min=0.0001,
         description = "Scale factor for bond radii")
     bond_sectors = IntProperty(
         name = "Bond sectors", default=8, min=3,
@@ -159,7 +159,7 @@ class ImportXYZ(Operator, ImportHelper):
         description="Choose bond material",
         items=(('ATOMS', "Atoms", "Same as atoms"),
                ('GENERIC', "Generic" , "Single bond color")),
-               default='0',)
+               default='ATOMS',)
     bond_color = FloatVectorProperty(
         name='Bond color', default=(0.8, 0.8, 0.8), subtype='COLOR')
     use_center = BoolProperty(

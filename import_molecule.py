@@ -984,8 +984,9 @@ def import_molecule(
                     ball_radius = (atom.radius - bond_radius) * Ball_radius_factor + bond_radius
                 elif Style == 'BALLS':
                     ball_radius = atom.radius * Ball_radius_factor
+                # Something distorts the NURBS in the z-direction compared to scaling it manually in Edit mode
                 for p in ball.data.splines[0].points:
-                    p.co *= ball_radius
+                    p.co.xyz *= ball_radius
                 # set resolution down
                 ball.data.resolution_u = 2
                 ball.data.resolution_v = 2
@@ -1181,7 +1182,7 @@ def import_molecule(
             id2 = m.group(2)
             
             c = o.constraints[-1]
-            c.target = bond_objects[short_name_dict[short2]]
+            c.target = bond_objects[element_dict[short2]]
             c.subtarget = id2
         print()
             
