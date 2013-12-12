@@ -1202,7 +1202,7 @@ def import_molecule(
 
 
 
-def build_frames(frame_delta, frame_skip, interpolation):
+def build_frames(frame_delta, frame_skip=1, frame_list=[], interpolation='BEZIER'):
     if DEBUG: print("Build frames.")
 
     scn = bpy.context.scene
@@ -1214,28 +1214,45 @@ def build_frames(frame_delta, frame_skip, interpolation):
         bpy.context.scene.objects.active = element_ob
         element_ob.select = True
         bpy.ops.object.shape_key_add(True)
-        
-    frame_skip += 1    
+    
+    # old version used different definition
+    #frame_skip += 1
 
     # Introduce the keys and reference the atom positions for each key.     
     i = 0
-    for j, frame in enumerate(ALL_FRAMES):
-           
-        if j % frame_skip == 0:
-           
+    if not frame_list:
+        for j, frame in enumerate(ALL_FRAMES):
+            
+            if j % frame_skip == 0:
+            
+                for elements_frame, elements_structure in zip(frame,STRUCTURE):
+                
+                    key = elements_structure.shape_key_add()
+        
+                    for atom_frame, atom_structure in zip(elements_frame, key.data):
+        
+                        atom_structure.co = (atom_frame.location 
+                                        - elements_structure.location)
+        
+                    key.name = atom_frame.name + "_frame_" + str(i) 
+
+                i += 1
+    else:
+        for j in frame_list:
+            frame = ALL_FRAMES[j]
             for elements_frame, elements_structure in zip(frame,STRUCTURE):
-             
+                
                 key = elements_structure.shape_key_add()
     
                 for atom_frame, atom_structure in zip(elements_frame, key.data):
     
                     atom_structure.co = (atom_frame.location 
-                                       - elements_structure.location)
+                                    - elements_structure.location)
     
                 key.name = atom_frame.name + "_frame_" + str(i) 
 
             i += 1
-
+        
     num_frames = i
         
     scn.frame_start = 0
@@ -1243,14 +1260,14 @@ def build_frames(frame_delta, frame_skip, interpolation):
 
     # Manage the values of the keys
     for element in STRUCTURE:
- 
+        
         scn.frame_current = 0 
-
+        
         element.data.shape_keys.key_blocks[1].value = 1.0
         element.data.shape_keys.key_blocks[2].value = 0.0
-        element.data.shape_keys.key_blocks[1].keyframe_insert("value")     
-        element.data.shape_keys.key_blocks[2].keyframe_insert("value")         
-
+        element.data.shape_keys.key_blocks[1].keyframe_insert("value")
+        element.data.shape_keys.key_blocks[2].keyframe_insert("value")
+        
         scn.frame_current += frame_delta
 
         number = 0

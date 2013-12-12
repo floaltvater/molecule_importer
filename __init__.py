@@ -191,11 +191,11 @@ class ImportXYZ(Operator, ImportHelper):
         name = "Load select frames", default=False,
         description = "Load specified frames only.")
     select_frames = StringProperty(
-        name = "", description="Specify which frames you want to use (e.g \"1, 3-5, 6+7\").",
+        name = "", description="Specify which frames you want to use (e.g \"1, 3-5, 6+7, 3-5\"). If empty, first frame is used. Frames will be processed in the order specified.",
         maxlen = 256, default = "")
-    #skip_frames = IntProperty(
-        #name="", default=0, min=0,
-        #description="Number of frames you want to skip.")
+    skip_frames = IntProperty(
+        name="", default=0, min=0,
+        description="Only use every xth frame.")
     images_per_key = IntProperty(
         name="", default=1, min=1,
         description="Choose the number of images between 2 keys.")
@@ -282,16 +282,16 @@ class ImportXYZ(Operator, ImportHelper):
         row = box.row()
         row.prop(self, "use_all_frames")
         row = box.row()
+        row.active = self.use_all_frames
+        col = row.column()
+        col.label(text="Skip frames")
+        col = row.column()
+        col.prop(self, "skip_frames")
+        row = box.row()
         row.prop(self, "use_select_frames")
         row = box.row()
         row.active = self.use_select_frames
         row.prop(self, "select_frames")
-        #row = box.row()
-        #row.active = self.use_frames
-        #col = row.column()
-        #col.label(text="Skip frames")
-        #col = row.column()
-        #col.prop(self, "skip_frames")
         row = box.row()
         row.active = (self.use_all_frames or self.use_select_frames)
         col = row.column()
@@ -310,7 +310,28 @@ class ImportXYZ(Operator, ImportHelper):
 
         # This is to determine the path.
         filepath = bpy.path.abspath(self.filepath)
-
+        
+        # check if select_frames is ok, otherwise stop right here
+        error_msg = ''
+        frame_list = []
+        if self.use_select_frames:
+            try:
+                for item in self.select_frames.split(','):
+                    if '-' in item:
+                        start, end = map(int, item.split('-'))
+                        frame_list.extend(range(start, end+1))
+                    elif '+' in item:
+                        frame_list.extend(map(int, item.split('+'))
+                    else:
+                        frame_list.append(int(item))
+            except (ValueError, TypeError):
+                error_msg = 'Format error in the frame list. Using first frame only.'
+                frame_list.append(1)
+            if not frame_list:
+                error_msg = 'Frame list was empty. Using first frame only.'
+                frame_list.append(1)
+        if error_msg: print(error_msg)
+        
         # Execute main routine
         import_molecule.import_molecule(
                       self.style,
@@ -331,12 +352,14 @@ class ImportXYZ(Operator, ImportHelper):
                       self.use_camera,
                       self.use_lamp,
                       filepath)
-
+        
+        if use_all_frames:
+            frame_list.extend(range(1, len(import_molecule.ALL_FRAMES)+1))
         # Load frames                  
-        if len(import_molecule.ALL_FRAMES) > 1 and self.use_frames:  
-                  
-            import_molecule.build_frames(self.images_per_key, 
-                                    self.skip_frames, self.interpolation)
+        if len(import_molecule.ALL_FRAMES) > 1 and frame_list and frame_list != [1]:
+            
+            import_molecule.build_frames(self.images_per_key, self.skip_frames,
+                                    frame_list, self.interpolation)
         
         return {'FINISHED'}
 
