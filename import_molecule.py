@@ -204,8 +204,8 @@ def read_elements():
 
     for item in ELEMENTS_DEFAULT:
 
-        # All three radii into a list
-        radii = [item[4],item[5],item[6]]
+        # All three radii into a list and add 1.0 for the constant
+        radii = [item[4],item[5],item[6], 1.0]
         # The handling of the ionic radii will be done later. So far, it is an
         # empty list.
         radii_ionic = []

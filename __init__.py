@@ -49,6 +49,17 @@ bl_info = {
     "category": "Import-Export"
 }
 
+
+if "bpy" in locals():
+    import imp
+    imp.reload(import_molecule)
+    imp.reload(export_molecule)
+    print("Reloaded multifiles")
+else:
+    from . import import_molecule
+    from . import export_molecule
+    print("Imported multifiles")
+
 import bpy
 from bpy.types import Operator
 from bpy_extras.io_utils import ImportHelper, ExportHelper
@@ -60,8 +71,9 @@ from bpy.props import (StringProperty,
                        FloatVectorProperty,
                        PointerProperty)
 
-from . import import_molecule
-from . import export_molecule
+
+
+
 # -----------------------------------------------------------------------------
 #                                                                           GUI
 
@@ -129,13 +141,14 @@ class ImportXYZ(Operator, ImportHelper):
     scale_distances = FloatProperty (
         name = "Distances", default=1.0, min=0.0001,
         description = "Scale factor for all distances")
-    atomradius = EnumProperty(
+    radiustype = EnumProperty(
         name="Type of radius",
         description="Choose type of atom radius",
         # keep numeric identifiers for easier list access
         items=(('0', "Pre-defined", "Use pre-defined radius"),
                ('1', "Atomic", "Use atomic radius"),
-               ('2', "van der Waals", "Use van der Waals radius")),
+               ('2', "van der Waals", "Use van der Waals radius"),
+               ('3', "constant", "Use same radius for all elements")),
                default='0',)
     stick = EnumProperty(
         name="Type of stick",
@@ -163,7 +176,7 @@ class ImportXYZ(Operator, ImportHelper):
     bond_color = FloatVectorProperty(
         name='Bond color', default=(0.8, 0.8, 0.8), subtype='COLOR')
     use_center = BoolProperty(
-        name = "Object to origin (first frames)", default=False,
+        name = "Object to origin (first frame)", default=False,
         description = "Put the object into the global origin, the first frame only")
     use_center_all = BoolProperty(
         name = "Object to origin (all frames)", default=False,
@@ -171,12 +184,18 @@ class ImportXYZ(Operator, ImportHelper):
     datafile = StringProperty(
         name = "", description="Path to your custom data file",
         maxlen = 256, default = "", subtype='FILE_PATH')    
-    use_frames = BoolProperty(
-        name = "Load all frames?", default=False,
-        description = "Do you want to load all frames?") 
-    skip_frames = IntProperty(
-        name="", default=0, min=0,
-        description="Number of frames you want to skip.")
+    use_all_frames = BoolProperty(
+        name = "Load all frames", default=False,
+        description = "Do you want to load all frames?")
+    use_select_frames = BoolProperty(
+        name = "Load select frames", default=False,
+        description = "Load specified frames only.")
+    select_frames = StringProperty(
+        name = "", description="Specify which frames you want to use (e.g \"1, 3-5, 6+7\").",
+        maxlen = 256, default = "")
+    #skip_frames = IntProperty(
+        #name="", default=0, min=0,
+        #description="Number of frames you want to skip.")
     images_per_key = IntProperty(
         name="", default=1, min=1,
         description="Choose the number of images between 2 keys.")
@@ -201,15 +220,13 @@ class ImportXYZ(Operator, ImportHelper):
         col = row.column()
         col.prop(self, "ball")
         row = box.row()
-        row.active = (self.ball == "1")
+        row.active = (self.ball == "MESH")
         col = row.column(align=True)        
         col.prop(self, "mesh_azimuth")
         col.prop(self, "mesh_zenith")
         row = box.row()
-        row.active = (self.style != "2") # only allow scaling of atoms if not sticks
-        row.prop(self, "atomradius")
+        row.prop(self, "radiustype")
         row = box.row()
-        row.active = (self.style != "2") # only allow scaling of atoms if not sticks
         col = row.column()
         col.label(text="Scaling factors")
         col = row.column(align=True)
@@ -217,7 +234,7 @@ class ImportXYZ(Operator, ImportHelper):
         col.prop(self, "scale_distances")
         
         box = layout.box()
-        box.active = (self.style != "0") # no bonds in balls style
+        box.active = (self.style != "BALLS") # no bonds in balls style
         
         row = box.row()
         row.label(text="Bonds")
@@ -230,7 +247,7 @@ class ImportXYZ(Operator, ImportHelper):
         col = row.column()
         col.prop(self, "bond_radius")
         row = box.row()
-        row.active = (self.stick == '1') # bond sectors only for mesh
+        row.active = (self.stick == 'MESH') # bond sectors only for mesh
         col = row.column()
         col.prop(self, "bond_sectors")
         row = box.row()
@@ -240,7 +257,7 @@ class ImportXYZ(Operator, ImportHelper):
         col = row.column()
         col.prop(self, "bond_material")
         row = box.row()
-        row.active = (self.bond_material == '1')
+        row.active = (self.bond_material == 'GENERIC')
         col = row.column()
         col.prop(self, "bond_color")
         
@@ -256,23 +273,33 @@ class ImportXYZ(Operator, ImportHelper):
         row = box.row()
         row.prop(self, "use_center")
         row = box.row()
+        row.active = (self.use_all_frames or self.use_select_frames)
         row.prop(self, "use_center_all")
+        
+        box = layout.box()
         row = box.row()
-        row.prop(self, "use_frames")        
-        row = box.row()        
-        row.active = self.use_frames        
-        col = row.column()
-        col.label(text="Skip frames")
-        col = row.column()
-        col.prop(self, "skip_frames")
+        row.label(text="Animation/Frames")
         row = box.row()
-        row.active = self.use_frames
+        row.prop(self, "use_all_frames")
+        row = box.row()
+        row.prop(self, "use_select_frames")
+        row = box.row()
+        row.active = self.use_select_frames
+        row.prop(self, "select_frames")
+        #row = box.row()
+        #row.active = self.use_frames
+        #col = row.column()
+        #col.label(text="Skip frames")
+        #col = row.column()
+        #col.prop(self, "skip_frames")
+        row = box.row()
+        row.active = (self.use_all_frames or self.use_select_frames)
         col = row.column()
         col.label(text="Frames/key")
         col = row.column()
-        col.prop(self, "images_per_key")            
+        col.prop(self, "images_per_key")
         row = box.row()
-        row.active = self.use_frames
+        row.active = (self.use_all_frames or self.use_select_frames)
         row.prop(self, "interpolation")
         
     def execute(self, context):
@@ -291,7 +318,7 @@ class ImportXYZ(Operator, ImportHelper):
                       self.mesh_azimuth,
                       self.mesh_zenith,
                       self.scale_ballradius,
-                      self.atomradius,
+                      self.radiustype,
                       self.scale_distances,
                       self.stick,
                       self.bond_radius,
